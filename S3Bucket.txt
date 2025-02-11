@@ -1,0 +1,65 @@
+To create an [Amazon S3](w) bucket using an [AWS CloudFormation](w) script within [AWX](w), follow these steps:
+
+### **1. Create the CloudFormation Template**
+Below is a simple CloudFormation YAML template to create an S3 bucket with versioning enabled:
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template to create an S3 bucket'
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'my-awx-bucket-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+```
+
+Save this as `s3-bucket.yml`.
+
+---
+
+### **2. Store the Template in an S3 Bucket (Optional)**
+If you want AWX to pull the CloudFormation template from an S3 bucket, upload `s3-bucket.yml` to an accessible S3 location.
+
+---
+
+### **3. Create an AWX Job Template**
+In AWX, create a job template that runs an [Ansible](w) playbook to deploy the CloudFormation stack.
+
+#### **Ansible Playbook (`deploy_s3.yml`)**
+This playbook uses the `cloudformation` module to deploy the S3 bucket:
+
+```yaml
+- name: Deploy S3 with CloudFormation
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Deploy S3 bucket using CloudFormation
+      amazon.aws.cloudformation:
+        stack_name: awx-s3-bucket
+        state: present
+        region: us-east-1
+        template: "{{ lookup('file', 's3-bucket.yml') }}"
+```
+
+---
+
+### **4. Configure an AWX Job Template**
+1. **Project**: Ensure your AWX project contains the `deploy_s3.yml` playbook and the `s3-bucket.yml` template.
+2. **Inventory**: Use an inventory with AWS credentials.
+3. **Execution Environment**: Ensure Ansible has the `amazon.aws` collection installed.
+4. **Extra Variables** (if needed):
+   ```yaml
+   region: us-east-1
+   ```
+
+---
+
+### **5. Run the Job**
+- Navigate to **Templates** in AWX.
+- Launch the job template.
+- Check the output to ensure the CloudFormation stack is created successfully.
+
+Would you like to add additional configurations such as encryption, lifecycle policies, or logging?
+
