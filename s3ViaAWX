@@ -1,0 +1,60 @@
+To create an [Amazon S3](w) bucket using [AWX](w) (the open-source version of [Ansible Tower](w)), you'll need to:  
+
+1. **Set Up Ansible and AWX**: Ensure AWX is running and configured with credentials to access AWS.  
+2. **Create an Ansible Playbook**: Use the [`amazon.aws.s3_bucket`](w) module to create an S3 bucket.  
+3. **Run the Playbook in AWX**: Execute it via an AWX job template.  
+
+---
+
+### **Step 1: Ensure AWX Has AWS Credentials**
+- Go to **AWX → Credentials** and add an **AWS Access Key**.
+- Use an IAM user with the `s3:CreateBucket` permission.
+
+---
+
+### **Step 2: Create an Ansible Playbook for S3 Bucket**
+Create a playbook file, e.g., `create_s3.yml`:
+
+```yaml
+---
+- name: Create an S3 bucket
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  tasks:
+    - name: Create an S3 bucket
+      amazon.aws.s3_bucket:
+        name: my-unique-bucket-name
+        state: present
+        region: us-east-1
+        acl: private
+      register: s3_result
+
+    - debug:
+        var: s3_result
+```
+
+Ensure:
+- `name` is globally unique.
+- `region` is set appropriately.
+- `acl` is one of: `private`, `public-read`, `public-read-write`, etc.
+
+---
+
+### **Step 3: Add the Playbook to AWX**
+1. **Upload Playbook to AWX Project**  
+   - Store `create_s3.yml` in an [Ansible Project](w) (e.g., in a Git repository linked to AWX).  
+
+2. **Create a Job Template in AWX**  
+   - Navigate to **Templates** → **Add Job Template**  
+   - Select the project, inventory (`localhost` for local execution), and playbook (`create_s3.yml`).  
+   - Choose the AWS credential added earlier.
+
+3. **Run the Job**  
+   - Launch the job in AWX.  
+   - Monitor execution logs to verify success.  
+
+---
+
+Would you like help automating this further, such as passing bucket names dynamically via extra vars? 🚀
