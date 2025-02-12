@@ -1,0 +1,137 @@
+To create an **API Gateway** and **AWS Lambda function** using **Ansible** (via **AWX**), follow these steps:  
+
+---
+
+## **Overview**
+1. **Ensure AWX Has AWS Credentials**  
+2. **Create an Ansible Playbook for API Gateway & Lambda**  
+3. **Run the Playbook in AWX**  
+
+---
+
+## **Step 1: Set Up AWS Credentials in AWX**
+- Go to **AWX → Credentials** and add an **AWS Access Key**.  
+- The IAM user should have the following permissions:  
+  - `lambda:*`  
+  - `apigateway:*`  
+  - `iam:PassRole`  
+  - `logs:*`  
+
+---
+
+## **Step 2: Create an Ansible Playbook**
+### **1️⃣ Create a Lambda Function & API Gateway**
+Save this as `create_lambda_api.yml`:
+
+```yaml
+---
+- name: Create API Gateway and Lambda
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  tasks:
+    - name: Create IAM role for Lambda
+      amazon.aws.iam_role:
+        name: LambdaExecutionRole
+        assume_role_policy_document: |
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "lambda.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+        managed_policies:
+          - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        state: present
+      register: lambda_role
+
+    - name: Upload Lambda function code to S3
+      amazon.aws.s3_object:
+        bucket: my-lambda-bucket
+        object: lambda_function.zip
+        src: /path/to/lambda_function.zip
+        mode: put
+
+    - name: Create Lambda function
+      amazon.aws.lambda:
+        name: myLambdaFunction
+        state: present
+        region: us-east-1
+        role: "{{ lambda_role.iam_role.arn }}"
+        handler: lambda_function.lambda_handler
+        runtime: python3.11
+        s3_bucket: my-lambda-bucket
+        s3_key: lambda_function.zip
+
+    - name: Create API Gateway
+      amazon.aws.apigateway:
+        name: my-api
+        state: present
+      register: api_result
+
+    - name: Create API Gateway resource
+      amazon.aws.apigateway_resource:
+        rest_api_id: "{{ api_result.api.id }}"
+        parent_id: "{{ api_result.api.root_resource_id }}"
+        path_part: lambda
+      register: resource
+
+    - name: Create API Gateway method
+      amazon.aws.apigateway_method:
+        rest_api_id: "{{ api_result.api.id }}"
+        resource_id: "{{ resource.resource.id }}"
+        http_method: GET
+        authorization: NONE
+
+    - name: Integrate API Gateway with Lambda
+      amazon.aws.apigateway_integration:
+        rest_api_id: "{{ api_result.api.id }}"
+        resource_id: "{{ resource.resource.id }}"
+        http_method: GET
+        integration_http_method: POST
+        type: AWS_PROXY
+        uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/{{ lambda_role.iam_role.arn }}/invocations"
+
+    - name: Deploy API Gateway
+      amazon.aws.apigateway_deployment:
+        rest_api_id: "{{ api_result.api.id }}"
+        stage_name: prod
+```
+
+---
+
+## **Step 3: Run in AWX**
+1. Upload `create_lambda_api.yml` to your **Ansible Project** in AWX.  
+2. Create a **Job Template** in AWX:  
+   - **Inventory** → `localhost`  
+   - **Playbook** → `create_lambda_api.yml`  
+   - **Credentials** → AWS  
+3. Run the job.  
+
+---
+
+## **Step 4: Test API Gateway**
+Once deployed, the API Gateway URL will be:
+```
+https://<API_ID>.execute-api.us-east-1.amazonaws.com/prod/lambda
+```
+Try calling it using **cURL**:
+```sh
+curl -X GET https://<API_ID>.execute-api.us-east-1.amazonaws.com/prod/lambda
+```
+
+---
+
+### **Next Steps**
+- Want to pass dynamic variables in AWX? Use **extra_vars**.  
+- Need API Gateway security? Add **IAM or Cognito authentication**.  
+- Want an easier CI/CD? Consider **Terraform or AWS CDK**.  
+
+Would you like help integrating this with AWS CloudWatch logging or auto-scaling? 🚀
