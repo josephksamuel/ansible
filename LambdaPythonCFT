@@ -1,0 +1,133 @@
+Here’s a **CloudFormation** template to create an **AWS Lambda function** using **Python** with a **ZIP deployment**.
+
+---
+
+### **What This Template Includes**
+- **Lambda Function** (Python-based)
+- **IAM Role** for Lambda execution
+- **S3 Bucket** (optional) to store the ZIP file
+
+---
+
+### **CloudFormation YAML Template**
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template to create a Python-based AWS Lambda function."
+
+Parameters:
+  LambdaFunctionName:
+    Type: String
+    Default: "MyPythonLambda"
+    Description: "Name of the Lambda function."
+
+  S3Bucket:
+    Type: String
+    Description: "S3 bucket name where the ZIP file is stored."
+
+  S3Key:
+    Type: String
+    Description: "Path to the ZIP file in the S3 bucket."
+
+  HandlerName:
+    Type: String
+    Default: "lambda_function.lambda_handler"
+    Description: "Python function handler (filename.function_name)."
+
+  MemorySize:
+    Type: Number
+    Default: 512
+    Description: "Lambda function memory in MB."
+
+  Timeout:
+    Type: Number
+    Default: 10
+    Description: "Lambda function timeout in seconds."
+
+Resources:
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "${LambdaFunctionName}-ExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "LambdaBasicExecutionPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+
+  PythonLambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Runtime: "python3.11"
+      Handler: !Ref HandlerName
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref S3Key
+      MemorySize: !Ref MemorySize
+      Timeout: !Ref Timeout
+
+Outputs:
+  LambdaFunctionARN:
+    Description: "ARN of the deployed Lambda function"
+    Value: !GetAtt PythonLambdaFunction.Arn
+```
+
+---
+
+### **How to Use**
+#### 1. **Create Your Python Lambda Function**
+Create a file named `lambda_function.py`:
+```python
+def lambda_handler(event, context):
+    return {
+        "statusCode": 200,
+        "body": "Hello from Python Lambda!"
+    }
+```
+
+#### 2. **Package It into a ZIP File**
+Run the following command:
+```sh
+zip my-lambda.zip lambda_function.py
+```
+
+#### 3. **Upload the ZIP to S3**
+```sh
+aws s3 cp my-lambda.zip s3://your-s3-bucket/path/to/my-lambda.zip
+```
+
+#### 4. **Deploy the CloudFormation Stack**
+```sh
+aws cloudformation deploy \
+  --template-file python-lambda.yaml \
+  --stack-name MyPythonLambdaStack \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    LambdaFunctionName=MyPythonLambda \
+    S3Bucket=your-s3-bucket \
+    S3Key=path/to/my-lambda.zip \
+    HandlerName=lambda_function.lambda_handler
+```
+
+---
+
+### **Notes**
+- Ensure your **S3 bucket is accessible** to Lambda.
+- Modify the **IAM Role** if your Lambda needs access to other AWS services.
+- Update the **Python runtime version** (`python3.11`) if needed.
+
+Would you like to add **API Gateway** or **EventBridge triggers** for this Lambda? 🚀
