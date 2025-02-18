@@ -1,0 +1,127 @@
+Here’s a simple **AWS CloudFormation** template to create a **Java Lambda function**. This template includes:
+
+- **AWS Lambda Function** (Java-based)
+- **IAM Role** for Lambda execution
+- **S3 Bucket** (optional) to store the JAR file
+
+---
+
+### **Steps:**
+1. Package your Java application as a JAR (`.jar`).
+2. Upload the JAR to an **S3 bucket**.
+3. Deploy this CloudFormation stack.
+
+---
+
+### **CloudFormation YAML Template**
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template to create a Java-based AWS Lambda function."
+
+Parameters:
+  LambdaFunctionName:
+    Type: String
+    Default: "MyJavaLambda"
+    Description: "Name of the Lambda function."
+
+  S3Bucket:
+    Type: String
+    Description: "S3 bucket name where the JAR file is stored."
+
+  S3Key:
+    Type: String
+    Description: "Path to the JAR file in the S3 bucket."
+
+  HandlerName:
+    Type: String
+    Default: "com.example.LambdaHandler::handleRequest"
+    Description: "Java class handler (package.Class::method)."
+
+  MemorySize:
+    Type: Number
+    Default: 512
+    Description: "Lambda function memory in MB."
+
+  Timeout:
+    Type: Number
+    Default: 10
+    Description: "Lambda function timeout in seconds."
+
+Resources:
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "${LambdaFunctionName}-ExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "LambdaBasicExecutionPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+
+  JavaLambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Runtime: "java17"
+      Handler: !Ref HandlerName
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref S3Key
+      MemorySize: !Ref MemorySize
+      Timeout: !Ref Timeout
+
+Outputs:
+  LambdaFunctionARN:
+    Description: "ARN of the deployed Lambda function"
+    Value: !GetAtt JavaLambdaFunction.Arn
+```
+
+---
+
+### **How to Use**
+1. **Build and Package Your Java Lambda Function:**
+   ```sh
+   mvn clean package
+   ```
+   This creates a JAR file in the `target/` directory.
+
+2. **Upload the JAR to S3:**
+   ```sh
+   aws s3 cp target/my-lambda.jar s3://your-s3-bucket/path/to/my-lambda.jar
+   ```
+
+3. **Deploy the CloudFormation Stack:**
+   ```sh
+   aws cloudformation deploy \
+     --template-file java-lambda.yaml \
+     --stack-name MyJavaLambdaStack \
+     --capabilities CAPABILITY_NAMED_IAM \
+     --parameter-overrides \
+       LambdaFunctionName=MyJavaLambda \
+       S3Bucket=your-s3-bucket \
+       S3Key=path/to/my-lambda.jar \
+       HandlerName=com.example.LambdaHandler::handleRequest
+   ```
+
+---
+
+### **Notes**
+- Make sure your Lambda handler follows the correct format (`package.Class::method`).
+- Modify the `IAM Role` if your Lambda needs to access other AWS services.
+- Update the **Java runtime version** (`java17`) based on your project.
+
+Would you like help setting up an **API Gateway** to trigger this Lambda? 🚀
