@@ -1,0 +1,149 @@
+Here’s a **CloudFormation** template to create an **API Gateway** with:  
+
+✅ **JSON Schema validation**  
+✅ **Resource policy** (to restrict access based on IP)  
+✅ **Integration with AWS Lambda**  
+
+---
+
+## **CloudFormation YAML Template**
+```yaml
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "API Gateway with JSON Schema validation and Resource Policy."
+
+Parameters:
+  ApiGatewayName:
+    Type: String
+    Default: "MyApiGateway"
+    Description: "Name of the API Gateway."
+
+  LambdaFunctionArn:
+    Type: String
+    Description: "ARN of the Lambda function to integrate with API Gateway."
+
+  AllowedIP:
+    Type: String
+    Default: "0.0.0.0/0"
+    Description: "CIDR block allowed to access the API."
+
+Resources:
+  MyApiGateway:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name: !Ref ApiGatewayName
+      Description: "API Gateway with JSON Schema validation and resource policy."
+
+  ApiGatewayResource:
+    Type: "AWS::ApiGateway::Resource"
+    Properties:
+      ParentId: !GetAtt MyApiGateway.RootResourceId
+      PathPart: "validate"
+      RestApiId: !Ref MyApiGateway
+
+  ApiGatewayMethod:
+    Type: "AWS::ApiGateway::Method"
+    Properties:
+      RestApiId: !Ref MyApiGateway
+      ResourceId: !Ref ApiGatewayResource
+      HttpMethod: "POST"
+      AuthorizationType: "NONE"
+      RequestValidatorId: !Ref ApiGatewayRequestValidator
+      RequestModels:
+        "application/json": !Ref ApiGatewayModel
+      Integration:
+        Type: "AWS_PROXY"
+        IntegrationHttpMethod: "POST"
+        Uri: !Sub 
+          - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunctionArn}/invocations"
+          - { LambdaFunctionArn: !Ref LambdaFunctionArn }
+        PassthroughBehavior: "WHEN_NO_MATCH"
+
+  ApiGatewayRequestValidator:
+    Type: "AWS::ApiGateway::RequestValidator"
+    Properties:
+      RestApiId: !Ref MyApiGateway
+      ValidateRequestBody: true
+      ValidateRequestParameters: false
+
+  ApiGatewayModel:
+    Type: "AWS::ApiGateway::Model"
+    Properties:
+      RestApiId: !Ref MyApiGateway
+      Name: "RequestSchema"
+      ContentType: "application/json"
+      Schema:
+        {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "age": { "type": "integer", "minimum": 18 }
+          },
+          "required": ["name", "age"]
+        }
+
+  ApiGatewayDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    Properties:
+      RestApiId: !Ref MyApiGateway
+      StageName: "prod"
+    DependsOn: ApiGatewayMethod
+
+  ApiGatewayResourcePolicy:
+    Type: "AWS::ApiGateway::RestApi"
+    Properties:
+      Name: !Ref ApiGatewayName
+      Policy:
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "execute-api:Invoke",
+              "Resource": !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApiGateway}/*",
+              "Condition": {
+                "NotIpAddress": { "aws:SourceIp": !Ref AllowedIP }
+              }
+            }
+          ]
+        }
+
+Outputs:
+  ApiGatewayInvokeURL:
+    Description: "Invoke URL of the API Gateway"
+    Value: !Sub "https://${MyApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/validate"
+```
+
+---
+
+## **How It Works**
+1. **Creates an API Gateway** named `MyApiGateway`.
+2. **Defines a `/validate` resource** with a **POST method**.
+3. **Adds JSON Schema validation**:
+   - Requires `name` (string) and `age` (integer, must be 18+).
+4. **Integrates with Lambda** (proxy integration).
+5. **Applies a resource policy**:
+   - Allows only requests from the specified **AllowedIP**.
+
+---
+
+## **How to Deploy**
+```sh
+aws cloudformation deploy \
+  --template-file api-gateway.yaml \
+  --stack-name MyApiGatewayStack \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    ApiGatewayName=MyApiGateway \
+    LambdaFunctionArn=arn:aws:lambda:us-east-1:123456789012:function:MyLambda \
+    AllowedIP=192.168.1.0/24
+```
+
+---
+
+### **Next Steps**
+- **Test the API** using Postman or `curl`.
+- **Add authentication** (e.g., IAM or Cognito).
+- **Enable logging and monitoring** via CloudWatch.
+
+Let me know if you need modifications! 🚀
