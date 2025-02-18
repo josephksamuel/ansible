@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation Template to Install and Use a Lambda Layer
+
+Resources:
+
+  # S3 Bucket for Lambda Artifacts (Optional, replace with an existing bucket)
+  LambdaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "lambda-layer-bucket-${AWS::AccountId}-${AWS::Region}"
+
+  # Lambda Layer containing Python packages
+  LambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: MyPythonLayer
+      Description: Lambda Layer with Python dependencies (requests)
+      Content:
+        S3Bucket: !Ref LambdaBucket
+        S3Key: "layers/python-layer.zip"  # Layer ZIP must be uploaded here
+      CompatibleRuntimes:
+        - python3.11
+      LicenseInfo: "MIT"
+      RetentionPolicy: Retain  # Keeps previous layer versions
+
+  # Lambda Function using the Layer
+  MyLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: MyLambdaFunction
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.11
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref LambdaBucket
+        S3Key: "lambda/my-lambda.zip"  # Lambda code ZIP must be uploaded here
+      Layers:
+        - !Ref LambdaLayer  # Attaching the created Layer
+
+  # IAM Role for Lambda Execution
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: LambdaExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaBasicExecution
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+Outputs:
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt MyLambdaFunction.Arn
+  LambdaLayerArn:
+    Description: ARN of the Lambda Layer
+    Value: !Ref LambdaLayer
