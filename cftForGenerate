@@ -1,0 +1,89 @@
+To generate a CloudFormation template for an **existing** AWS Lambda function that also uses a **Lambda Layer**, follow these steps:  
+
+### **Assumptions:**  
+1. **Lambda function already exists** – The template will update its properties.  
+2. **Layer already exists** – The template will attach the existing layer.  
+3. **IAM Role already exists** – It will use an existing execution role.  
+
+---
+
+### **CloudFormation Template for an Existing Lambda with Layer**  
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Update an existing AWS Lambda function and attach an existing Lambda Layer.
+
+Parameters:
+  ExistingLambdaFunctionName:
+    Type: String
+    Description: Name of the existing Lambda function to update.
+
+  ExistingLambdaExecutionRoleArn:
+    Type: String
+    Description: ARN of the existing IAM role for Lambda execution.
+
+  S3BucketName:
+    Type: String
+    Description: Name of the existing S3 bucket containing the Lambda function code.
+
+  S3ObjectKey:
+    Type: String
+    Description: S3 object key (ZIP file) for the Lambda function code.
+
+  ExistingLayerArn:
+    Type: String
+    Description: ARN of the existing Lambda Layer.
+
+Resources:
+  MyUpdatedLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref ExistingLambdaFunctionName
+      Role: !Ref ExistingLambdaExecutionRoleArn
+      Runtime: python3.11
+      Handler: lambda_function.lambda_handler  # Update if needed
+      Code:
+        S3Bucket: !Ref S3BucketName
+        S3Key: !Ref S3ObjectKey
+      Timeout: 15
+      MemorySize: 256
+      Layers:
+        - !Ref ExistingLayerArn
+      Environment:
+        Variables:
+          MY_ENV_VAR: "UpdatedLambdaWithLayer"
+
+Outputs:
+  UpdatedLambdaFunctionARN:
+    Description: ARN of the updated Lambda function
+    Value: !GetAtt MyUpdatedLambdaFunction.Arn
+```
+
+---
+
+### **How to Deploy This CloudFormation Template**
+1. Ensure your Lambda function ZIP file is uploaded to an **S3 bucket**.  
+2. Identify:
+   - The **Lambda function name** you want to update.  
+   - The **IAM Role ARN** assigned to the Lambda.  
+   - The **Layer ARN** of the existing Lambda Layer.  
+3. Deploy using AWS CLI:  
+   ```sh
+   aws cloudformation create-stack --stack-name update-lambda-with-layer \
+     --template-body file://update-lambda.yml \
+     --parameters ParameterKey=ExistingLambdaFunctionName,ParameterValue=your-existing-lambda \
+                  ParameterKey=ExistingLambdaExecutionRoleArn,ParameterValue=arn:aws:iam::123456789012:role/existing-lambda-role \
+                  ParameterKey=S3BucketName,ParameterValue=your-existing-bucket \
+                  ParameterKey=S3ObjectKey,ParameterValue=your-lambda-code.zip \
+                  ParameterKey=ExistingLayerArn,ParameterValue=arn:aws:lambda:us-east-1:123456789012:layer:your-layer:1 \
+     --capabilities CAPABILITY_NAMED_IAM
+   ```
+
+---
+
+### **How This Works:**
+- **Attaches the existing Lambda Layer** to the function.  
+- **Updates the function's code** using the provided S3 bucket.  
+- **Keeps the same IAM Role** (so no new role is created).  
+
+Would you like to add **triggers (API Gateway, S3, CloudWatch)** to this function as well? 🚀
