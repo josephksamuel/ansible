@@ -287,4 +287,46 @@ sudo yum install -y certbot python2-certbot-nginx
 
 Let me know if you need more help! 🚀
 
+========================================================================================================
+
+Since you're using Red Hat Enterprise Linux (RHEL) 9.5, you need to enable the correct repositories before installing packages like EPEL and Certbot.
+✅ Step 1: Enable Required Repositories
+
+Run the following commands to enable EPEL and CodeReady Builder repositories:
+
+sudo dnf config-manager --set-enabled crb
+sudo dnf install -y epel-release
+
+If the crb repository is not found, try:
+
+sudo subscription-manager repos --enable codeready-builder-for-rhel-9-rhui-rpms
+
+✅ Step 2: Install Required Packages
+
+Once EPEL is enabled, install Certbot and Nginx:
+
+sudo dnf install -y certbot python3-certbot-nginx nginx
+
+Start and enable Nginx:
+
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
+✅ Step 3: Verify Installation
+
+Check if Nginx is running:
+
+sudo systemctl status nginx
+
+Test if Certbot is installed:
+
+certbot --version
+
+🚀 Next Steps
+
+    Confirm repositories are enabled (dnf repolist).
+    Try installing EPEL and Certbot again.
+    Let me know if you hit any errors! 🚀
+
+
 
