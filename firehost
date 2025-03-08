@@ -377,5 +377,52 @@ sudo dnf install -y certbot python3-certbot-nginx nginx
     Let me know if you get any errors! 🚀
 
 
+==========================================
+ Step 1: Check System Registration
+
+Run this command to check if your system is registered with Red Hat:
+
+sudo subscription-manager status
+
+If it says "Not registered", register your system with:
+
+sudo subscription-manager register --username=your-redhat-username --password=your-redhat-password
+
+Then attach a valid subscription:
+
+sudo subscription-manager attach --auto
+
+✅ Step 2: Enable Required Repositories
+
+After registration, enable the necessary repositories:
+
+sudo subscription-manager repos --enable codeready-builder-for-rhel-9-rhui-rpms
+sudo subscription-manager repos --enable rhel-9-server-rpms
+sudo subscription-manager repos --enable rhel-9-server-extras-rpms
+
+✅ Step 3: If You Cannot Register (AWS RHEL AMI)
+
+If you are using RHEL on AWS EC2, the standard subscription-manager method might not work. Instead:
+
+    Enable Amazon’s RHEL repositories (instead of Red Hat’s):
+
+sudo dnf config-manager --set-enabled rhui-client-config-server-9
+sudo dnf config-manager --set-enabled rhui-rhel-9-server-rhui-rpms
+
+Check if EPEL is available:
+
+sudo dnf install -y epel-release
+
+Try installing the required packages again:
+
+    sudo dnf install -y nginx certbot python3-certbot-nginx
+
+🚀 Next Steps
+
+    Check if your system is registered (subscription-manager status).
+    Enable the right repositories using one of the above methods.
+    Try installing the required packages again.
+    If you get errors, let me know what they are! 🚀
+
 
 
