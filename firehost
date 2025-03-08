@@ -328,5 +328,54 @@ certbot --version
     Try installing EPEL and Certbot again.
     Let me know if you hit any errors! 🚀
 
+========================================================================================
+
+Step 1: Check Available Repositories
+
+Run the following command to list all available repositories:
+
+sudo dnf repolist all
+
+Look for a repository named CodeReady Builder (it may appear as codeready-builder-for-rhel-9-*). If you see it but it's disabled, enable it.
+✅ Step 2: Enable CodeReady Builder Repository
+
+If it's available but disabled, enable it using:
+
+sudo subscription-manager repos --enable codeready-builder-for-rhel-9-rhui-rpms
+
+If the repository is not found, your system may not be properly registered with Red Hat.
+✅ Step 3: Ensure Your System is Registered with Red Hat
+
+Check if your system is registered:
+
+sudo subscription-manager status
+
+If it's not registered, register it with your Red Hat credentials:
+
+sudo subscription-manager register --username=your-redhat-username --password=your-redhat-password
+
+After registering, attach the appropriate subscription:
+
+sudo subscription-manager attach --auto
+
+Then try enabling the repository again:
+
+sudo subscription-manager repos --enable codeready-builder-for-rhel-9-rhui-rpms
+
+✅ Step 4: Install EPEL Release and Certbot
+
+Once the repository is enabled, install EPEL and Certbot:
+
+sudo dnf install -y epel-release
+sudo dnf install -y certbot python3-certbot-nginx nginx
+
+🚀 Next Steps
+
+    Check if repositories are available (dnf repolist all).
+    Register your system with Red Hat if needed.
+    Enable CodeReady Builder and try installing the packages.
+    Let me know if you get any errors! 🚀
+
+
 
 
