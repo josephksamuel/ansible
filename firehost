@@ -87,3 +87,87 @@ Additional Considerations
     Verify IAM roles assigned to Kinesis and OpenSearch.
 
 Let me know if you need help troubleshooting! 🚀
+
+
+=========================================================
+
+1. Ensure You Are Using Kinesis Data Firehose (Not Kinesis Data Streams)
+
+AWS Kinesis has multiple services:
+
+    Kinesis Data Streams → For real-time streaming data (not what we need).
+    Kinesis Data Firehose → Used for sending data to OpenSearch, S3, etc.
+
+🔹 Fix:
+Go to AWS Console → Kinesis → Data Firehose, then look for "Create Delivery Stream".
+👉 Direct Link: AWS Kinesis Data Firehose
+2. Check AWS Region
+
+Not all AWS regions support Kinesis Data Firehose. If the option is missing:
+🔹 Fix:
+
+    In the AWS Console, switch to a supported region like us-east-1 (N. Virginia) or us-west-2 (Oregon).
+    Try accessing Kinesis Data Firehose again.
+
+3. Check IAM Permissions
+
+If your AWS user/account does not have the required permissions, the Create Delivery Stream option will be missing.
+
+🔹 Fix:
+Ask your AWS admin to grant these permissions to your IAM user:
+
+{
+    "Effect": "Allow",
+    "Action": [
+        "firehose:CreateDeliveryStream",
+        "firehose:PutRecord",
+        "firehose:PutRecordBatch",
+        "firehose:DescribeDeliveryStream",
+        "firehose:ListDeliveryStreams"
+    ],
+    "Resource": "*"
+}
+
+👉 Steps to Check Permissions:
+
+    Go to AWS Console → IAM → Users.
+    Select your IAM User.
+    Click Permissions → Add Permissions.
+    Attach the policy "AmazonKinesisFirehoseFullAccess".
+
+4. Use AWS CLI to Create a Firehose Stream (Alternative)
+
+If the AWS Console is missing the option, try creating the stream using AWS CLI.
+
+🔹 Command to Create a Kinesis Firehose Stream for OpenSearch:
+
+aws firehose create-delivery-stream \
+  --delivery-stream-name MyFirehoseStream \
+  --delivery-stream-type DirectPut \
+  --opensearch-destination-configuration \
+  ClusterEndpoint="https://your-opensearch-endpoint",IndexName="cloudwatch-logs",RoleARN="arn:aws:iam::123456789012:role/firehose-role"
+
+👉 Check Firehose Streams:
+
+aws firehose list-delivery-streams
+
+5. Check AWS Service Quotas
+
+If your AWS account has reached the limit for Kinesis Firehose Streams, you may not be able to create new ones.
+
+🔹 Fix:
+
+    Go to AWS Console → Service Quotas.
+    Search for "Kinesis Data Firehose Delivery Streams".
+    If at the limit, request a quota increase.
+
+✅ Final Steps to Fix
+
+    Ensure you're in Kinesis Data Firehose (not Kinesis Data Streams).
+    Check AWS region (use us-east-1 or another supported region).
+    Verify IAM permissions (AmazonKinesisFirehoseFullAccess).
+    Use AWS CLI if the console option is missing.
+    Check service quotas if you hit Firehose limits.
+
+Let me know if you need more help! 🚀
+
