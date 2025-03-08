@@ -255,3 +255,36 @@ aws firehose create-delivery-stream \
 
 Let me know if you need help setting this up! 🚀
 
+
+==================================================================
+
+Install Required Packages
+1. Install Nginx (for HTTPS proxy)
+
+sudo yum install -y nginx
+
+Start and enable Nginx:
+
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
+2. Install Certbot (for SSL)
+
+For RHEL 8+:
+
+sudo dnf install -y certbot python3-certbot-nginx
+
+For RHEL 7:
+
+sudo yum install -y epel-release
+sudo yum install -y certbot python2-certbot-nginx
+
+🚀 Next Steps
+
+    Verify that yum is working (sudo yum update -y).
+    Confirm if you need an HTTPS setup for Kinesis Firehose.
+    If you need OpenSearch running with HTTPS, proceed with the Nginx proxy setup.
+
+Let me know if you need more help! 🚀
+
+
