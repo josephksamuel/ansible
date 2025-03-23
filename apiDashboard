@@ -1,0 +1,72 @@
+cft scripts
+ChatGPT said:
+
+Here’s a CloudFormation (CFT) template to create a CloudWatch dashboard for API Gateway monitoring.
+CloudFormation Template (YAML)
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudWatch Dashboard for API Gateway"
+
+Resources:
+  APIGatewayDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: API-Gateway-Dashboard
+      DashboardBody: 
+        Fn::Sub: |
+          {
+            "widgets": [
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 6,
+                "properties": {
+                  "metrics": [
+                    ["AWS/ApiGateway", "5XXError", "ApiId", "${ApiGatewayId}"],
+                    ["AWS/ApiGateway", "4XXError", "ApiId", "${ApiGatewayId}"],
+                    ["AWS/ApiGateway", "Latency", "ApiId", "${ApiGatewayId}"],
+                    ["AWS/ApiGateway", "IntegrationLatency", "ApiId", "${ApiGatewayId}"],
+                    ["AWS/ApiGateway", "Count", "ApiId", "${ApiGatewayId}"]
+                  ],
+                  "period": 60,
+                  "stat": "Average",
+                  "title": "API Gateway Metrics",
+                  "view": "timeSeries"
+                }
+              }
+            ]
+          }
+
+Parameters:
+  ApiGatewayId:
+    Type: String
+    Description: "API Gateway ID"
+
+Outputs:
+  DashboardName:
+    Description: "CloudWatch Dashboard Name"
+    Value: !Ref APIGatewayDashboard
+
+Deployment Steps
+
+    Save this file as api-gateway-dashboard.yaml.
+
+    Deploy via AWS CLI:
+
+    aws cloudformation create-stack --stack-name api-gateway-dashboard --template-body file://api-gateway-dashboard.yaml --parameters ParameterKey=ApiGatewayId,ParameterValue=YOUR_API_ID --capabilities CAPABILITY_NAMED_IAM
+
+    Replace YOUR_API_ID with your API Gateway ID.
+
+    Check CloudWatch Dashboards in AWS Console.
+
+Features
+
+    Monitors 5XX errors, 4XX errors, latency, integration latency, and request count.
+
+    Works for any API Gateway by passing ApiGatewayId as a parameter.
+
+    Uses CloudFormation for easy deployment and updates.
+
+Let me know if you need modifications! 🚀
