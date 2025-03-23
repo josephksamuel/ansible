@@ -1,0 +1,88 @@
+To create CloudWatch Alarms across multiple API Gateway Log Groups for 5xx errors, you can use CloudFormation (CFT) with metric filters to extract 5xx errors and trigger alarms when they exceed a threshold.
+________________________________________
+Solution Overview
+1.	Enable API Gateway Access Logs (if not already enabled).
+2.	Define CloudWatch Log Groups for API Gateway.
+3.	Create Metric Filters to count 5xx errors.
+4.	Set Up CloudWatch Alarms for those errors.
+________________________________________
+CloudFormation Template
+This template:
+•	Assumes API Gateway logs are stored in CloudWatch Log Groups (APIGatewayLogGroup1, APIGatewayLogGroup2).
+•	Monitors 5xx HTTP status codes using metric filters.
+•	Triggers a CloudWatch Alarm if the error count exceeds 5 within a minute.
+•	Notifies via an SNS topic.
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  # CloudWatch Log Groups for API Gateway
+  APIGatewayLogGroup1:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/apigateway/stage1
+      RetentionInDays: 7
+
+  APIGatewayLogGroup2:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/apigateway/stage2
+      RetentionInDays: 7
+
+  # Metric Filter for API Gateway 5xx Errors - Log Group 1
+  API5xxMetricFilter1:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref APIGatewayLogGroup1
+      FilterPattern: '"5" "HTTP"'
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "APIGatewayErrors"
+          MetricName: "5xxErrorCount"
+
+  # Metric Filter for API Gateway 5xx Errors - Log Group 2
+  API5xxMetricFilter2:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref APIGatewayLogGroup2
+      FilterPattern: '"5" "HTTP"'
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "APIGatewayErrors"
+          MetricName: "5xxErrorCount"
+
+  # CloudWatch Alarm for API Gateway 5xx Errors
+  API5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "APIGateway5xxErrorAlarm"
+      AlarmDescription: "Triggers when 5xx errors exceed threshold"
+      Namespace: "APIGatewayErrors"
+      MetricName: "5xxErrorCount"
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref MySNSTopic
+
+  # SNS Topic for Notifications
+  MySNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "APIGatewayErrorAlarms"
+
+Outputs:
+  AlarmArn:
+    Value: !Ref API5xxAlarm
+    Description: "CloudWatch Alarm ARN for API Gateway 5xx errors"
+________________________________________
+How This Works
+1.	Metric Filters extract 5xx errors from API Gateway logs.
+2.	CloudWatch Alarm triggers if the total count of 5xx errors exceeds 5 in 60 seconds.
+3.	SNS Topic can be used for email/SMS notifications.
+Next Steps
+•	Do you need this across more API Gateway stages?
+•	Would you like to customize the FilterPattern further (e.g., specific 502, 503, or 504 errors)?
+•	Want to add Lambda automation for automatic scaling when errors spike?
+Let me know how you’d like to refine this! 🚀
+
