@@ -1,0 +1,115 @@
+Here's an AWS CloudFormation (CFT) template to create a VPC with VPC Flow Logs enabled. This template includes:  
+
+- A VPC with a CIDR block  
+- An Internet Gateway  
+- A public and private subnet  
+- A Flow Log with logging to an S3 bucket  
+
+---
+
+### **CloudFormation Template (YAML)**  
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template to create a VPC with Flow Logs enabled'
+
+Resources:
+  # VPC
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: MyVPC
+
+  # Internet Gateway
+  MyInternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  # Attach Internet Gateway to VPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref MyInternetGateway
+
+  # Public Subnet
+  MyPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs ''
+
+  # Private Subnet
+  MyPrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs ''
+
+  # S3 Bucket for Flow Logs
+  FlowLogsBucket:
+    Type: AWS::S3::Bucket
+
+  # IAM Role for Flow Logs
+  FlowLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: vpc-flow-logs.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: FlowLogsPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:PutObject"
+                Resource: !Sub "arn:aws:s3:::${FlowLogsBucket}/*"
+
+  # VPC Flow Log
+  VPCFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogsRole.Arn
+      LogDestination: !GetAtt FlowLogsBucket.Arn
+      LogDestinationType: s3
+      ResourceId: !Ref MyVPC
+      ResourceType: VPC
+      TrafficType: ALL
+
+Outputs:
+  VPCId:
+    Description: "VPC ID"
+    Value: !Ref MyVPC
+  FlowLogsBucketName:
+    Description: "S3 Bucket for VPC Flow Logs"
+    Value: !Ref FlowLogsBucket
+```
+
+---
+
+### **What This Does**
+- Creates a **VPC** with `10.0.0.0/16`
+- Adds **public** (`10.0.1.0/24`) and **private** (`10.0.2.0/24`) subnets
+- Attaches an **Internet Gateway**
+- Creates an **S3 bucket** to store VPC flow logs
+- Adds an **IAM Role** for VPC flow logs to write to S3
+- Enables **VPC Flow Logs** to capture all traffic (`ALL` mode)  
+
+Let me know if you need modifications (e.g., send logs to **CloudWatch Logs** instead of S3). 🚀
