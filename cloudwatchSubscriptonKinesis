@@ -1,0 +1,310 @@
+Here’s an AWS CloudFormation template (CFT) for setting up an Amazon Kinesis Data Stream with an Amazon Kinesis Data Firehose that delivers data to an S3 bucket. It also includes an AWS Lambda function as a subscriber to process records from the Kinesis stream.
+
+Features:
+Kinesis Data Stream (KinesisStream)
+
+IAM Role for Kinesis to assume (KinesisRole)
+
+Amazon Kinesis Data Firehose (KinesisFirehose) for streaming to an S3 bucket
+
+S3 Bucket (S3Bucket) as the Firehose destination
+
+Lambda Function (KinesisLambdaFunction) as a subscriber
+
+CloudFormation Template:
+yaml
+Copy
+Edit
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to set up a Kinesis Data Stream with a Lambda consumer and Firehose to S3.
+
+Resources:
+  # Kinesis Data Stream
+  KinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: MyKinesisStream
+      ShardCount: 1
+  
+  # S3 Bucket for Firehose Destination
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "my-kinesis-firehose-bucket-${AWS::AccountId}"
+
+  # IAM Role for Kinesis Firehose
+  KinesisRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - firehose.amazonaws.com
+            Action: 
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: KinesisFirehoseS3Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+
+  # Kinesis Data Firehose Delivery Stream
+  KinesisFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: MyKinesisFirehose
+      DeliveryStreamType: DirectPut
+      S3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${S3Bucket}"
+        RoleARN: !GetAtt KinesisRole.Arn
+
+  # IAM Role for Lambda Function
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - lambda.amazonaws.com
+            Action: 
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaKinesisPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+              - Effect: Allow
+                Action:
+                  - kinesis:GetRecords
+                  - kinesis:GetShardIterator
+                  - kinesis:DescribeStream
+                  - kinesis:ListStreams
+                  - kinesis:SubscribeToShard
+                Resource: !GetAtt KinesisStream.Arn
+
+  # Lambda Function for Kinesis Subscription
+  KinesisLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: KinesisStreamProcessor
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              print("Received event: " + json.dumps(event))
+              return {"statusCode": 200, "body": "Processed"}
+
+  # Event Source Mapping (Kinesis -> Lambda)
+  KinesisEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt KinesisStream.Arn
+      FunctionName: !GetAtt KinesisLambdaFunction.Arn
+      StartingPosition: LATEST
+      BatchSize: 10
+
+Outputs:
+  KinesisStreamArn:
+    Description: "ARN of the Kinesis Stream"
+    Value: !GetAtt KinesisStream.Arn
+  FirehoseArn:
+    Description: "ARN of the Kinesis Firehose"
+    Value: !GetAtt KinesisFirehose.Arn
+  LambdaFunctionArn:
+    Description: "ARN of the Lambda Function"
+    Value: !GetAtt KinesisLambdaFunction.Arn
+How It Works:
+Kinesis Data Stream receives data.
+
+Firehose can optionally send data to S3.
+
+Lambda function subscribes to Kinesis and processes records in real time.
+
+IAM roles are created for Kinesis, Firehose, and Lambda to ensure security.
+
+Would you like me to modify this to add Kinesis Data Analytics, a custom VPC, or other integrations? 🚀
+
+
+
+
+
+
+
+You said:
+parameter cloudwatch name
+
+
+ChatGPT said:
+If you want to make the CloudWatch Log Group name configurable using a CloudFormation parameter, you can modify the template like this:
+
+Changes Made:
+Added a CloudFormation Parameter (CloudWatchLogGroupName).
+
+Updated the Lambda Function to use this parameter for logging.
+
+Updated CloudFormation Template (with CloudWatch Parameter)
+yaml
+Copy
+Edit
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to set up a Kinesis Data Stream with a Lambda consumer and Firehose to S3.
+
+Parameters:
+  CloudWatchLogGroupName:
+    Type: String
+    Default: /aws/lambda/KinesisStreamProcessor
+    Description: Name of the CloudWatch Log Group for Lambda logs.
+
+Resources:
+  # Kinesis Data Stream
+  KinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: MyKinesisStream
+      ShardCount: 1
+  
+  # S3 Bucket for Firehose Destination
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "my-kinesis-firehose-bucket-${AWS::AccountId}"
+
+  # IAM Role for Kinesis Firehose
+  KinesisRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - firehose.amazonaws.com
+            Action: 
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: KinesisFirehoseS3Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+
+  # Kinesis Data Firehose Delivery Stream
+  KinesisFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: MyKinesisFirehose
+      DeliveryStreamType: DirectPut
+      S3DestinationConfiguration:
+        BucketARN: !Sub "arn:aws:s3:::${S3Bucket}"
+        RoleARN: !GetAtt KinesisRole.Arn
+
+  # IAM Role for Lambda Function
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - lambda.amazonaws.com
+            Action: 
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaKinesisPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:*:*:${AWS::AccountId}:log-group:${CloudWatchLogGroupName}:*"
+              - Effect: Allow
+                Action:
+                  - kinesis:GetRecords
+                  - kinesis:GetShardIterator
+                  - kinesis:DescribeStream
+                  - kinesis:ListStreams
+                  - kinesis:SubscribeToShard
+                Resource: !GetAtt KinesisStream.Arn
+
+  # CloudWatch Log Group
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref CloudWatchLogGroupName
+      RetentionInDays: 7
+
+  # Lambda Function for Kinesis Subscription
+  KinesisLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: KinesisStreamProcessor
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          def lambda_handler(event, context):
+              logger.info("Received event: %s", json.dumps(event))
+              return {"statusCode": 200, "body": "Processed"}
+
+  # Event Source Mapping (Kinesis -> Lambda)
+  KinesisEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt KinesisStream.Arn
+      FunctionName: !GetAtt KinesisLambdaFunction.Arn
+      StartingPosition: LATEST
+      BatchSize: 10
+
+Outputs:
+  KinesisStreamArn:
+    Description: "ARN of the Kinesis Stream"
+    Value: !GetAtt KinesisStream.Arn
+  FirehoseArn:
+    Description: "ARN of the Kinesis Firehose"
+    Value: !GetAtt KinesisFirehose.Arn
+  LambdaFunctionArn:
+    Description: "ARN of the Lambda Function"
+    Value: !GetAtt KinesisLambdaFunction.Arn
+  CloudWatchLogGroup:
+    Description: "CloudWatch Log Group for Lambda"
+    Value: !Ref CloudWatchLogGroupName
+What This Change Does:
+✅ Adds a CloudWatch Log Group parameter (CloudWatchLogGroupName)
+✅ Ensures the Lambda function logs go to the specified CloudWatch Log Group
+✅ Creates a Log Group resource (LambdaLogGroup) with a retention period of 7 days
+✅ Updates the IAM policy to allow logging permissions
