@@ -1,0 +1,111 @@
+Here's an AWS CloudFormation template to set up OpenSearch Service with CloudWatch logging enabled. This template:  
+
+1. Creates an OpenSearch Service domain.  
+2. Enables logging to CloudWatch for **index slow logs**, **search slow logs**, and **error logs**.  
+3. Sets up necessary IAM permissions.  
+
+---
+
+### **CloudFormation Template for OpenSearch with CloudWatch Logging**
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation template for OpenSearch Service with CloudWatch logging'
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: my-opensearch-domain
+    Description: OpenSearch Service domain name.
+
+  InstanceType:
+    Type: String
+    Default: r6g.large.search
+    Description: Instance type for OpenSearch cluster.
+
+  InstanceCount:
+    Type: Number
+    Default: 2
+    Description: Number of instances in the OpenSearch cluster.
+
+  VolumeSize:
+    Type: Number
+    Default: 20
+    Description: EBS volume size (in GB) for each instance.
+
+Resources:
+
+  OpenSearchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/opensearch/${DomainName}"
+      RetentionInDays: 7
+
+  OpenSearchServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "OpenSearchLoggingRole-${DomainName}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: opensearchservice.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: OpenSearchCloudWatchPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt OpenSearchLogGroup.Arn
+
+  OpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: !Ref DomainName
+      EngineVersion: "OpenSearch_2.11"
+      ClusterConfig:
+        InstanceType: !Ref InstanceType
+        InstanceCount: !Ref InstanceCount
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: !Ref VolumeSize
+      LogPublishingOptions:
+        INDEX_SLOW_LOGS:
+          CloudWatchLogsLogGroupArn: !GetAtt OpenSearchLogGroup.Arn
+          Enabled: true
+        SEARCH_SLOW_LOGS:
+          CloudWatchLogsLogGroupArn: !GetAtt OpenSearchLogGroup.Arn
+          Enabled: true
+        ES_APPLICATION_LOGS:
+          CloudWatchLogsLogGroupArn: !GetAtt OpenSearchLogGroup.Arn
+          Enabled: true
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: es:*
+            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${DomainName}/*"
+
+Outputs:
+  OpenSearchDomainEndpoint:
+    Value: !GetAtt OpenSearchDomain.DomainEndpoint
+    Description: OpenSearch Service domain endpoint.
+
+  CloudWatchLogGroup:
+    Value: !Ref OpenSearchLogGroup
+    Description: CloudWatch Log Group used for OpenSearch logs.
+```
+
+---
+
+### **What This Template Does**
+✅ Creates an OpenSearch cluster with **configurable instance type, count, and storage**.  
+✅ Enables CloudWatch logs for **index slow logs, search slow logs, and error logs**.  
+✅ Creates an IAM role that allows OpenSearch to publish logs to CloudWatch.  
+
+Let me know if you need modifications, like **VPC access, snapshot settings, or fine-grained access control**! 🚀
