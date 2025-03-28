@@ -1,0 +1,48 @@
+aws cft iam policy
+ChatGPT said:
+
+An AWS CloudFormation (CFT) template can be used to define an IAM policy. Below is an example of how you can create an IAM policy using CloudFormation.
+Example: Creating an IAM Policy
+
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  MyIAMPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MyCustomPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetObject
+            Resource:
+              - arn:aws:s3:::my-bucket
+              - arn:aws:s3:::my-bucket/*
+      Roles:
+        - MyIAMRole
+
+  MyIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: MyIAMRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+
+Explanation
+
+    AWS::IAM::Policy: Defines a new IAM policy.
+
+    PolicyDocument: Defines the permissions.
+
+    Roles: Attaches the policy to an IAM role.
+
+    AWS::IAM::Role: Creates an IAM role with a trust policy allowing EC2 to assume it.
+
+Would you like to attach this policy to a user or group instead of a role? Let me know if you need modifications!
