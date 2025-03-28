@@ -1,0 +1,48 @@
+aws cft iam role
+ChatGPT said:
+
+An AWS CloudFormation (CFT) template can be used to define an IAM role. Below is an example of how to create an IAM role with a trust policy and attach an inline policy.
+Example: Creating an IAM Role with Inline Policy
+
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  MyIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: MyIAMRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com  # Allow EC2 to assume this role
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: MyEC2S3Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                Resource:
+                  - arn:aws:s3:::my-bucket
+                  - arn:aws:s3:::my-bucket/*
+
+Outputs:
+  IAMRoleARN:
+    Description: "The ARN of the IAM role"
+    Value: !GetAtt MyIAMRole.Arn
+
+Explanation
+
+    AWS::IAM::Role: Creates an IAM role.
+
+    AssumeRolePolicyDocument: Defines which AWS services (EC2 in this case) can assume the role.
+
+    Policies: Attaches an inline policy that grants S3 access.
+
+    Outputs: Outputs the role ARN.
+
+Do you need this role to be attached to an instance profile for EC2? Let me know if you need modifications! 🚀
