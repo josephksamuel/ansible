@@ -1,0 +1,130 @@
+To centralize logs from Amazon CloudWatch to Amazon S3 and set up monitoring using AWS CloudFormation, follow these steps:
+
+### 1. **Set Up Amazon Kinesis Data Firehose**
+
+Create a Kinesis Data Firehose delivery stream to transport logs from CloudWatch to S3.
+
+**CloudFormation Template Snippet:**
+
+
+```yaml
+Resources:
+  FirehoseToS3:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamType: DirectPut
+      S3DestinationConfiguration:
+        BucketARN: arn:aws:s3:::your-centralized-logs-bucket
+        RoleARN: arn:aws:iam::your-account-id:role/FirehoseS3Role
+        BufferingHints:
+          SizeInMBs: 5
+          IntervalInSeconds: 300
+        CompressionFormat: GZIP
+```
+
+
+This snippet sets up a Firehose delivery stream that buffers data up to 5 MB or 300 seconds before delivering compressed logs to the specified S3 bucket.
+
+### 2. **Create an IAM Role for Firehose**
+
+Define an IAM role that grants Kinesis Firehose permission to write to your S3 bucket.
+
+**CloudFormation Template Snippet:**
+
+
+```yaml
+Resources:
+  FirehoseS3Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: FirehoseS3Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource: arn:aws:s3:::your-centralized-logs-bucket/*
+```
+
+
+This role allows Firehose to put objects into your S3 bucket.
+
+### 3. **Set Up CloudWatch Logs Subscription Filter**
+
+Configure a subscription filter to send log events from a CloudWatch log group to the Firehose delivery stream.
+
+**CloudFormation Template Snippet:**
+
+
+```yaml
+Resources:
+  CloudWatchLogsSubscriptionFilter:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: your-log-group-name
+      FilterPattern: ''
+      DestinationArn: !GetAtt FirehoseToS3.Arn
+      RoleArn: !GetAtt CloudWatchLogsRole.Arn
+```
+
+
+This filter forwards all log events from the specified log group to the Firehose stream.
+
+### 4. **Create an IAM Role for CloudWatch Logs**
+
+Define an IAM role that grants CloudWatch Logs permission to put data into the Firehose stream.
+
+**CloudFormation Template Snippet:**
+
+
+```yaml
+Resources:
+  CloudWatchLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: logs.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CloudWatchLogsToFirehosePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - firehose:PutRecord
+                  - firehose:PutRecordBatch
+                Resource: !GetAtt FirehoseToS3.Arn
+```
+
+
+This role allows CloudWatch Logs to send data to the Firehose stream.
+
+### 5. **Deploy the CloudFormation Stack**
+
+Combine the snippets above into a single CloudFormation template and deploy it. Ensure that:
+
+- Replace placeholders like `your-centralized-logs-bucket`, `your-account-id`, and `your-log-group-name` with your actual AWS resources.
+- The S3 bucket exists and has the appropriate permissions.
+- IAM roles have the necessary trust relationships and policies.
+
+By implementing this setup, you can centralize CloudWatch logs into an S3 bucket for long-term storage and analysis.
+
+For more detailed information on subscription filters and Firehose configurations, refer to the AWS documentation:
+
+- [AWS::Logs::SubscriptionFilter](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-subscriptionfilter.html)
+- [Writing with CloudWatch Logs](https://docs.aws.amazon.com/firehose/latest/dev/writing-with-cloudwatch-logs.html) 
