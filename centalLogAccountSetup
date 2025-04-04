@@ -1,0 +1,112 @@
+aws cft for kinesis stream central log account  and add logs desitnation for subscription filter
+ChatGPT said:
+
+Here's a CloudFormation Template (CFT) that sets up:
+
+    A Kinesis Data Stream in a central logging account.
+
+    A CloudWatch Logs Destination that allows subscription filters from other accounts to send logs to this stream.
+
+This assumes you're running the stack in the central logging account and that source accounts will be setting up SubscriptionFilters targeting this destination.
+✅ CloudFormation Template (YAML)
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Central Logging Setup - Kinesis Stream and Log Destination
+
+Parameters:
+  KinesisStreamName:
+    Type: String
+    Default: central-log-stream
+    Description: Name of the Kinesis Data Stream
+  DestinationName:
+    Type: String
+    Default: central-log-destination
+    Description: Name of the CloudWatch Logs Destination
+  SourceAccountId:
+    Type: String
+    Description: Account ID of the source (sending logs) account
+
+Resources:
+  KinesisStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Ref KinesisStreamName
+      ShardCount: 1
+
+  LogDestinationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: log-destination-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: logs.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: allow-kinesis-put
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kinesis:PutRecord
+                  - kinesis:PutRecords
+                Resource: !GetAtt KinesisStream.Arn
+
+  LogsDestination:
+    Type: AWS::Logs::Destination
+    Properties:
+      DestinationName: !Ref DestinationName
+      RoleArn: !GetAtt LogDestinationRole.Arn
+      TargetArn: !GetAtt KinesisStream.Arn
+
+  DestinationPolicy:
+    Type: AWS::Logs::ResourcePolicy
+    Properties:
+      PolicyName: allow-subscription-filter
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref SourceAccountId
+            Action: logs:PutSubscriptionFilter
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:destination:${DestinationName}
+
+Outputs:
+  KinesisStreamArn:
+    Value: !GetAtt KinesisStream.Arn
+    Export:
+      Name: CentralLog-KinesisStreamArn
+
+  LogDestinationArn:
+    Value: !GetAtt LogsDestination.Arn
+    Export:
+      Name: CentralLog-DestinationArn
+
+✅ What This Does:
+
+    Creates a Kinesis Stream to receive logs.
+
+    Creates a Log Destination for CloudWatch Logs from other AWS accounts.
+
+    Sets up IAM permissions for CloudWatch Logs to write to the stream.
+
+    Defines a Resource Policy to allow a source account to create PutSubscriptionFilter.
+
+🧪 Next Steps for Source Accounts:
+
+In the source accounts, you can set up a subscription filter like this (via CLI, SDK, or another CFT):
+
+aws logs put-subscription-filter \
+  --log-group-name /aws/lambda/my-lambda-log-group \
+  --filter-name MyFilter \
+  --filter-pattern "" \
+  --destination-arn arn:aws:logs:<region>:<central-account-id>:destination:central-log-destination
+
+Would you like a version of this CFT that supports multiple source accounts, or do you want to automatically register the destination in the source accounts as well (via stack sets or cross-account setup)?
+
+
+ChatGPT can make mistakes. Check important info.
