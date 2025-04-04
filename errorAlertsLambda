@@ -1,0 +1,78 @@
+🛠️ 1. Create a Lambda Function to Process Errors
+
+Here’s a basic Python example (Node.js, Go, etc. also possible):
+🔸 lambda_function.py:
+
+import json
+import gzip
+import base64
+
+def lambda_handler(event, context):
+    payload = base64.b64decode(event['awslogs']['data'])
+    decompressed = gzip.decompress(payload)
+    log_data = json.loads(decompressed)
+
+    for log_event in log_data['logEvents']:
+        message = log_event['message']
+        if "ERROR" in message:
+            # 👇 This is where you'd send alerts, push to SNS, etc.
+            print(f"[ALERT] ERROR found: {message}")
+            
+    return {
+        'statusCode': 200,
+        'body': 'Processed'
+    }
+
+You can extend this to send Slack alerts, emails, or push to a monitoring tool.
+🧾 2. IAM Role for Lambda (example policy)
+
+Attach a basic role for reading logs:
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+
+Also make sure the role trusts lambda.amazonaws.com.
+🔄 3. Create the Logs Subscription Filter
+
+From the source account, run this (after the Lambda is deployed):
+
+aws logs put-subscription-filter \
+  --log-group-name "/aws/lambda/my-function" \
+  --filter-name "ErrorLogTrigger" \
+  --filter-pattern '"ERROR"' \
+  --destination-arn arn:aws:lambda:us-east-1:123456789012:function:ProcessEachError \
+  --region us-east-1
+
+⚠️ Don’t forget:
+
+    Lambda must grant permission to be invoked by CloudWatch Logs:
+
+aws lambda add-permission \
+  --function-name ProcessEachError \
+  --statement-id AllowCWLogsInvoke \
+  --action "lambda:InvokeFunction" \
+  --principal logs.amazonaws.com \
+  --source-arn arn:aws:logs:us-east-1:123456789012:log-group:/aws/lambda/my-function:* \
+  --region us-east-1
+
+✅ Done! What You Get:
+
+    Logs with "ERROR" automatically trigger your Lambda
+
+    Lambda runs logic per event (send alerts, write to database, etc.)
+
+    You have near real-time detection with total control over handling
+
+Want me to package this into Terraform, CloudFormation, or a full repo? Or help you connect it to Slack/SNS/Email? Just say the word.
