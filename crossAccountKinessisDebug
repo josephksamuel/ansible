@@ -1,0 +1,87 @@
+The error message, "User with account id is not authorized to perform logs:PutSubscriptionFilter on resource destination", typically occurs when the necessary permissions for cross-account access to a CloudWatch Logs destination are not properly configured. Here's how you can resolve this issue:
+
+Steps to Fix the Issue
+1. Verify Destination Policy
+Ensure that the destination policy in the account hosting the destination (e.g., Kinesis stream or Lambda) explicitly allows the source account to use the logs:PutSubscriptionFilter action. For example:
+
+json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowCrossAccountSubscription",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<source-account-id>:root"
+      },
+      "Action": "logs:PutSubscriptionFilter",
+      "Resource": "arn:aws:logs:<region>:<destination-account-id>:destination:<destination-name>"
+    }
+  ]
+}
+Replace <source-account-id>, <region>, <destination-account-id>, and <destination-name> with actual values.
+
+Use the following AWS CLI command to apply this policy:
+
+bash
+aws logs put-destination-policy \
+  --destination-name <destination-name> \
+  --access-policy file://destination_policy.json
+2. Validate IAM Permissions in Source Account
+The IAM user or role in the source account creating the subscription filter must have a policy granting it permission to invoke logs:PutSubscriptionFilter on the destination. Example policy:
+
+json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "logs:PutSubscriptionFilter",
+      "Resource": [
+        "arn:aws:logs:<region>:<destination-account-id>:destination:<destination-name>",
+        "arn:aws:logs:<region>:<source-account-id>:log-group:*"
+      ]
+    }
+  ]
+}
+Attach this policy to the IAM user or role performing the operation.
+
+3. Use Correct Command Syntax
+Ensure you are using the correct AWS CLI command to create the subscription filter. For example:
+
+bash
+aws logs put-subscription-filter \
+  --log-group-name <log-group-name> \
+  --filter-name <filter-name> \
+  --filter-pattern "" \
+  --destination-arn arn:aws:logs:<region>:<destination-account-id>:destination:<destination-name>
+If you're using a Kinesis stream or Firehose, ensure you also provide a --role-arn parameter for an IAM role that grants CloudWatch Logs permissions to deliver log events.
+
+4. Check Conditions in Destination Policy
+If you're using conditions like aws:PrincipalOrgID for AWS Organizations, ensure that:
+
+The source account is part of the same organization.
+
+The condition matches correctly.
+
+Example condition:
+
+json
+"Condition": {
+  "StringEquals": {
+    "aws:PrincipalOrgID": "<organization-id>"
+  }
+}
+If this setup doesn't work, you may need to specify individual accounts instead of relying on PrincipalOrgID, as some limitations may still apply.
+
+5. Cross-Account Role Assumption (Optional)
+If direct permissions are complex, consider using a cross-account IAM role in the destination account that allows the source account to assume it and perform logs:PutSubscriptionFilter. Update your application or script to assume this role before calling the API.
+
+By ensuring both destination policies and IAM permissions are correctly configured, you should be able to resolve this error and successfully create a cross-account subscription filter.
+
+People also ask
+How can I ensure that logs from all child accounts are properly routed to my Kinesis stream
+What are the common errors encountered when setting up subscription filters in CloudWatch Logs
+How do I update an existing subscription filter without causing conflicts
+What are the best practices for configuring destination policies in CloudWatch Logs
+Can I use AWS Lambda functions as destinations for subscription filters
