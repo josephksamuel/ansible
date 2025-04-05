@@ -1,0 +1,137 @@
+Ah, you're now hitting the dreaded:
+
+> **"Cross-account role passing is not allowed"**
+
+That usually comes up during **CloudWatch Logs to Kinesis (cross-account)** setup when:
+- You're using a role in **Account A** to let CloudWatch Logs send data to a **Kinesis stream in Account B**, and
+- That role needs to be assumable by the CloudWatch Logs service **and** permitted to interact cross-account.
+
+Let’s break it down and fix it step by step. 🔧
+
+---
+
+## ✅ Key Concepts in Cross-Account Log Streaming
+
+In this case:
+
+| Role                          | What it does                           |
+|------------------------------|----------------------------------------|
+| `logs:PutSubscriptionFilter` | Called in **Account A** (source)       |
+| IAM Role in Account A        | Used by **CloudWatch Logs** to push to Kinesis |
+| Kinesis stream in Account B  | Destination for the logs               |
+
+---
+
+### 🔹 1. Create IAM Role in Account A for CloudWatch Logs to Assume
+
+This is the **“delivery” role**. It must:
+- Be in **Account A**
+- Trust the **CloudWatch Logs service**
+- Have permission to write to **Kinesis in Account B**
+
+#### a. 🛡️ Trust Policy (for `logs.<region>.amazonaws.com`)
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "logs.<region>.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+#### b. 📜 Permissions Policy
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "kinesis:PutRecord",
+      "Resource": "arn:aws:kinesis:<region>:<AccountB-ID>:stream/central-logging-stream"
+    }
+  ]
+}
+```
+
+✅ **No role-passing required here** — CloudWatch Logs *assumes this role directly*.
+
+---
+
+### 🔹 2. Ensure You’re Not Using a Role in **Account B**
+
+**You CANNOT use a role in Account B** (destination) as the `--role-arn` in your `put-subscription-filter` call.
+
+You must pass a role **in Account A** that CloudWatch Logs can assume.
+
+> ❌ This will **fail**:
+> ```bash
+> --role-arn arn:aws:iam::AccountB-ID:role/SomeRole
+> ```
+
+> ✅ This will **work**:
+> ```bash
+> --role-arn arn:aws:iam::AccountA-ID:role/CloudWatchToKinesisRole
+> ```
+
+---
+
+### 🔹 3. Kinesis Resource Policy in Account B
+
+Your **Kinesis stream** in Account B needs to allow:
+- `Service: logs.<region>.amazonaws.com`
+- `AWS:SourceAccount: <AccountA-ID>`
+- `AWS:SourceArn` to match log group ARN
+
+Example:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowAccountAtoWrite",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "logs.<region>.amazonaws.com"
+      },
+      "Action": "kinesis:PutRecord",
+      "Resource": "arn:aws:kinesis:<region>:<AccountB-ID>:stream/central-logging-stream",
+      "Condition": {
+        "StringEquals": {
+          "AWS:SourceAccount": "<AccountA-ID>"
+        },
+        "ArnLike": {
+          "AWS:SourceArn": "arn:aws:logs:<region>:<AccountA-ID>:log-group:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+---
+
+### ✅ Final Checklist
+
+- ✅ Role in **Account A**
+- ✅ Role trust policy allows `logs.<region>.amazonaws.com`
+- ✅ Role permission policy allows `kinesis:PutRecord` on the stream
+- ✅ Kinesis stream in **Account B** has a resource policy allowing `logs.<region>` and `SourceAccount`
+
+---
+
+If you want, I can generate the exact trust and permission policies based on:
+- Your account IDs
+- Region
+- Log group name
+- Stream name
+
+Just drop those in and I’ll make it clean and copy-paste ready.
