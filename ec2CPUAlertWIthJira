@@ -1,0 +1,102 @@
+To create a CPU utilization alert for an EC2 instance using Boto3 and automatically create a Jira ticket when the alert triggers, you'll need to combine several AWS and Atlassian components. Here's a high-level approach:
+🧠 Overview
+
+    CloudWatch Alarm: Monitors EC2 CPU usage.
+
+    SNS Topic: Sends notifications when the alarm is triggered.
+
+    Lambda Function: Subscribed to the SNS topic; creates a Jira ticket via the Jira REST API.
+
+    IAM Role: Gives the Lambda function necessary permissions.
+
+🔧 Step-by-Step Setup
+1. Create a CloudWatch Alarm using Boto3
+
+import boto3
+
+cloudwatch = boto3.client('cloudwatch')
+
+cloudwatch.put_metric_alarm(
+    AlarmName='HighCPUUtilization',
+    MetricName='CPUUtilization',
+    Namespace='AWS/EC2',
+    Statistic='Average',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=80.0,
+    ComparisonOperator='GreaterThanThreshold',
+    Dimensions=[
+        {'Name': 'InstanceId', 'Value': 'i-xxxxxxxxxxxxxxxxx'},
+    ],
+    AlarmActions=['arn:aws:sns:us-east-1:123456789012:YourSNSTopic'],
+    ActionsEnabled=True
+)
+
+2. SNS Topic
+
+    Create an SNS topic manually or via Boto3.
+
+    Subscribe a Lambda function to it.
+
+3. Lambda Function (Triggered by SNS)
+
+Python Lambda Code (pseudo-example):
+
+import json
+import requests
+import os
+
+def lambda_handler(event, context):
+    message = json.loads(event['Records'][0]['Sns']['Message'])
+
+    jira_url = os.environ['JIRA_URL']
+    jira_user = os.environ['JIRA_USER']
+    jira_token = os.environ['JIRA_API_TOKEN']
+    project_key = os.environ['JIRA_PROJECT_KEY']
+
+    summary = f"High CPU Alert for {message['AlarmName']}"
+    description = json.dumps(message, indent=2)
+
+    payload = {
+        "fields": {
+            "project": {"key": project_key},
+            "summary": summary,
+            "description": description,
+            "issuetype": {"name": "Task"}
+        }
+    }
+
+    response = requests.post(
+        f"{jira_url}/rest/api/2/issue",
+        headers={"Content-Type": "application/json"},
+        auth=(jira_user, jira_token),
+        json=payload
+    )
+
+    return {
+        "statusCode": response.status_code,
+        "body": response.text
+    }
+
+4. IAM Role for Lambda
+
+Attach permissions for:
+
+    logs:*
+
+    cloudwatch:*
+
+    sns:*
+
+✅ Requirements Recap
+
+    EC2 instance ID
+
+    SNS topic ARN
+
+    Jira credentials (username & API token)
+
+    Jira project key
+
+    Lambda function deployment (can be zipped and uploaded)
+
