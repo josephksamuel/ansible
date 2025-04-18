@@ -1,0 +1,103 @@
+To create an **availability alert for an AWS Lambda function**, you typically monitor **errors**, **invocation counts**, or **throttles** via **Amazon CloudWatch**, and trigger alerts based on certain thresholds.
+
+Here’s how to set up a **Lambda availability alert**:
+
+---
+
+## 🚨 What to Monitor for Lambda "Availability"
+
+1. **Errors** (function errors including exceptions)
+2. **Throttles** (invocations exceeding concurrency limits)
+3. **Invocations** (to verify it's being triggered as expected)
+4. **Duration / Timeout** (optional, if function hangs)
+
+---
+
+## ✅ Recommended CloudWatch Metrics
+
+| Metric       | Namespace       | Description                                  |
+|--------------|------------------|----------------------------------------------|
+| `Errors`     | `AWS/Lambda`     | Count of function errors                     |
+| `Throttles`  | `AWS/Lambda`     | Count of throttled invocations               |
+| `Invocations`| `AWS/Lambda`     | Count of invocations (to check for drops)    |
+
+---
+
+## 🔧 Example: CloudWatch Alarm for Lambda Errors
+
+```python
+import boto3
+
+cloudwatch = boto3.client('cloudwatch')
+
+cloudwatch.put_metric_alarm(
+    AlarmName='LambdaHighErrorRate',
+    Namespace='AWS/Lambda',
+    MetricName='Errors',
+    Dimensions=[
+        {'Name': 'FunctionName', 'Value': 'my-lambda-function-name'}
+    ],
+    Statistic='Sum',
+    Period=300,  # 5 minutes
+    EvaluationPeriods=1,
+    Threshold=1,  # Trigger if there's at least 1 error
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmActions=['arn:aws:sns:us-east-1:123456789012:MySNSTopic'],
+    TreatMissingData='notBreaching',
+    ActionsEnabled=True
+)
+```
+
+---
+
+## 🧪 Optional: Add More Alarms
+
+**Throttling Alert:**
+```python
+cloudwatch.put_metric_alarm(
+    AlarmName='LambdaThrottlesAlert',
+    Namespace='AWS/Lambda',
+    MetricName='Throttles',
+    Dimensions=[{'Name': 'FunctionName', 'Value': 'my-lambda-function-name'}],
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmActions=['arn:aws:sns:us-east-1:123456789012:MySNSTopic']
+)
+```
+
+**No Invocations (to detect silent failures):**
+
+```python
+cloudwatch.put_metric_alarm(
+    AlarmName='LambdaNoInvocations',
+    Namespace='AWS/Lambda',
+    MetricName='Invocations',
+    Dimensions=[{'Name': 'FunctionName', 'Value': 'my-lambda-function-name'}],
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='LessThanThreshold',
+    AlarmActions=['arn:aws:sns:us-east-1:123456789012:MySNSTopic']
+)
+```
+
+---
+
+## 📣 Notifications: Connect to SNS or Lambda
+
+Make sure the `AlarmActions` ARN points to:
+- An **SNS topic** to notify people or systems, or
+- A **Lambda function** to auto-create tickets, trigger recovery steps, etc.
+
+---
+
+Let me know if you'd like:
+- All alarms bundled into one script
+- Alarms deployed via CloudFormation or Terraform
+- Alerts to integrate with Jira, Slack, or email
+
+Happy to help you set up the full pipeline!
