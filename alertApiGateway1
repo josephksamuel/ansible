@@ -1,0 +1,77 @@
+To monitor and alert on **5XX errors from API Gateway**, you'll want to set up a **CloudWatch alarm** on the `5XXError` metric for your API.
+
+---
+
+## 🔍 API Gateway 5XX Errors — What They Are
+
+- `5XXError` indicates **server-side issues** (like internal errors or integration timeouts).
+- These are often critical and deserve fast alerts.
+
+---
+
+## 🛠️ Boto3 Code to Create a 5XX Error Alert
+
+Here’s how you can create a CloudWatch alarm for 5XX errors using Boto3:
+
+```python
+import boto3
+
+cloudwatch = boto3.client('cloudwatch')
+
+cloudwatch.put_metric_alarm(
+    AlarmName='APIGateway5XXErrors',
+    Namespace='AWS/ApiGateway',
+    MetricName='5XXError',
+    Dimensions=[
+        {
+            'Name': 'ApiName',  # or 'ApiId' if you're using REST APIs or HTTP APIs
+            'Value': 'your-api-name'  # or API Gateway ID like 'a1b2c3d4e5'
+        }
+    ],
+    Statistic='Sum',
+    Period=300,  # 5 minutes
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmDescription='Triggers when API Gateway returns 1 or more 5XX errors in 5 minutes',
+    AlarmActions=['arn:aws:sns:us-east-1:123456789012:MySNSTopic'],
+    TreatMissingData='notBreaching',
+    ActionsEnabled=True
+)
+```
+
+---
+
+## ✅ Notes
+
+- For **HTTP APIs**, use `ApiId` in the `Dimensions`.
+- For **REST APIs**, use `ApiName`.
+- You can also filter by **Stage**, **Method**, and **Resource** for more granular alerts.
+
+```python
+Dimensions=[
+    {'Name': 'ApiName', 'Value': 'your-api-name'},
+    {'Name': 'Stage', 'Value': 'prod'}
+]
+```
+
+---
+
+## 📈 Optional: Add 4XX Error or Latency Alarms Too
+
+- `4XXError` – for client-side issues
+- `Latency` – for slow responses
+
+---
+
+## 📣 Integrate with Notification System
+
+The `AlarmActions` can be an SNS topic that:
+- Sends email/SMS
+- Triggers a Lambda
+- Opens a Jira ticket
+- Sends to Slack, etc.
+
+---
+
+Want help generating the SNS + Lambda + Jira integration for this API alert too?
