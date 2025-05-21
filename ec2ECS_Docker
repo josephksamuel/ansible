@@ -1,0 +1,105 @@
+To install and run a Docker image on an **Amazon ECS EC2 instance** (as part of an ECS cluster using the **EC2 launch type**, not Fargate), follow these steps:
+
+---
+
+## ✅ Prerequisites
+
+* You have an **ECS cluster** created with the **EC2 launch type**.
+* You have at least one **EC2 instance** registered with the cluster and ECS agent running.
+* **IAM role** for ECS EC2 instances (`ecsInstanceRole`) is attached.
+* The EC2 instance has **Docker installed** and running.
+* The ECS-optimized AMI or Amazon Linux 2 ECS-optimized AMI is preferred (Docker is pre-installed).
+
+---
+
+## 🛠️ Step-by-Step Instructions
+
+### **1. SSH into the EC2 instance (optional for manual run/debug)**
+
+```bash
+ssh -i your-key.pem ec2-user@<your-ec2-instance-public-ip>
+```
+
+### **2. (Optional) Check Docker and ECS agent**
+
+```bash
+docker info
+docker ps
+sudo systemctl status ecs
+```
+
+If Docker isn't installed, install it:
+
+```bash
+sudo yum update -y
+sudo amazon-linux-extras install docker -y
+sudo service docker start
+sudo usermod -a -G docker ec2-user
+```
+
+### **3. Define your Docker container as an ECS Task**
+
+Instead of running Docker manually, **you should define a task definition** and use ECS to manage it.
+
+Here’s an example task definition for a simple Docker image:
+
+```json
+{
+  "family": "my-docker-task",
+  "containerDefinitions": [
+    {
+      "name": "my-container",
+      "image": "your-docker-image",  // e.g., nginx, your-custom-image
+      "memory": 512,
+      "cpu": 256,
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80
+        }
+      ]
+    }
+  ]
+}
+```
+
+You can register this task with:
+
+```bash
+aws ecs register-task-definition --cli-input-json file://task-def.json
+```
+
+### **4. Run the task on your EC2-backed ECS cluster**
+
+```bash
+aws ecs run-task \
+  --cluster your-cluster-name \
+  --launch-type EC2 \
+  --task-definition my-docker-task
+```
+
+This schedules the task to run on one of your EC2 instances in the ECS cluster.
+
+---
+
+## 🧪 Optional: Running Docker manually on the instance (not recommended for production)
+
+```bash
+docker pull your-docker-image
+docker run -d -p 80:80 your-docker-image
+```
+
+This works, but **bypasses ECS orchestration**, so ECS won’t monitor or restart your container.
+
+---
+
+## 🧩 Notes
+
+* To **monitor logs**, use CloudWatch integration in the task definition.
+* If pulling a private image (e.g., from Docker Hub or ECR), configure credentials in the task definition.
+* Make sure the **security group** allows access to the needed ports (e.g., 80 or 443).
+
+---
+
+Would you like a working sample task definition with a specific image (like NGINX or your own)?
