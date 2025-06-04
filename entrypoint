@@ -1,0 +1,20 @@
+FROM eclipse-temurin:17-jdk
+
+# Set JMX and heap size options
+ENV JAVA_OPTS="\
+  -Xms512m -Xmx768m \
+  -Dcom.sun.management.jmxremote \
+  -Dcom.sun.management.jmxremote.port=9010 \
+  -Dcom.sun.management.jmxremote.rmi.port=9010 \
+  -Dcom.sun.management.jmxremote.local.only=false \
+  -Dcom.sun.management.jmxremote.authenticate=false \
+  -Dcom.sun.management.jmxremote.ssl=false \
+  -Djava.rmi.server.hostname=0.0.0.0"
+
+WORKDIR /app
+COPY target/app.jar .
+
+EXPOSE 8080 9010
+
+# Use exec so PID 1 is your Java process (important for signals/stop)
+ENTRYPOINT exec java $JAVA_OPTS -jar app.jar
